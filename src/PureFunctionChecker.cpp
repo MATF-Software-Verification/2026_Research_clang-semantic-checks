@@ -1,11 +1,13 @@
 #include "../include/PureFunctionChecker.hpp"
 #include "../include/PurityUtils.hpp"
+#include "../include/PureState.hpp"
 
 #include "clang/AST/Decl.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramStateTrait.h"
 #include "clang/StaticAnalyzer/Frontend/CheckerRegistry.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 
 using namespace clang;
 using namespace ento;
@@ -13,7 +15,6 @@ using namespace ento;
 extern "C" const char clang_analyzerAPIVersionString[] =
     CLANG_ANALYZER_API_VERSION_STRING;
 
-REGISTER_TRAIT_WITH_PROGRAMSTATE(InsidePureFunction, bool)
 
 void PureFunctionChecker::checkBeginFunction(
     CheckerContext &C) const
@@ -34,9 +35,50 @@ void PureFunctionChecker::checkBeginFunction(
                  << FD->getNameAsString()
                  << "\n";
 
-    State = State->set<InsidePureFunction>(true);
+    State = enterPureFunction(State);
 
     C.addTransition(State);
+}
+
+void PureFunctionChecker::checkEndFunction(
+    const ReturnStmt *,
+    CheckerContext &C) const
+{
+    ProgramStateRef State = C.getState();
+
+    if (!State->get<PureDepth>())
+        return;
+
+    State = leavePureFunction(State);
+
+    C.addTransition(State);
+}
+
+void PureFunctionChecker::checkPreCall(
+    const CallEvent &Call,
+    CheckerContext &C) const
+{
+    ProgramStateRef State = C.getState();
+
+    if (!isInsidePureFunction(State))
+        return;
+
+    const auto *FD = dyn_cast_or_null<FunctionDecl>(Call.getDecl());
+
+    if (!FD)
+        return;
+
+    if (!FD->hasBody())
+        return;
+
+    if (isPureFunction(FD))
+        return;
+
+    llvm::errs()
+        << "PURE FUNCTION CALLS NON-PURE FUNCTION: "
+        << FD->getNameAsString()
+        << "\n";
+        
 }
 
 extern "C" void clang_registerCheckers(CheckerRegistry &registry)

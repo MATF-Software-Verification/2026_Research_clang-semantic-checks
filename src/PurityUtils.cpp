@@ -1,4 +1,5 @@
 #include "../include/PurityUtils.hpp"
+#include "../include/PureState.hpp"
 
 #include "clang/AST/Attr.h"
 #include "llvm/ADT/StringRef.h"
@@ -25,4 +26,27 @@ bool ento::isPureFunction(const FunctionDecl *FD)
         return true;
 
     return false;
+}
+
+
+bool ento::isInsidePureFunction(ProgramStateRef State)
+{
+    return State->get<PureDepth>() > 0;
+}
+
+ProgramStateRef ento::enterPureFunction(ProgramStateRef State)
+{
+    unsigned depth = State->get<PureDepth>();
+
+    return State->set<PureDepth>(depth + 1);
+}
+
+ProgramStateRef ento::leavePureFunction(ProgramStateRef State)
+{
+    unsigned depth = State->get<PureDepth>();
+
+    if (Depth == 0)
+        return State;
+
+    return State->set<PureDepth>(depth - 1);
 }
