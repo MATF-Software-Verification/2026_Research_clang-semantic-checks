@@ -45,7 +45,7 @@ ProgramStateRef ento::leavePureFunction(ProgramStateRef State)
 {
     unsigned depth = State->get<PureDepth>();
 
-    if (Depth == 0)
+    if (depth == 0)
         return State;
 
     return State->set<PureDepth>(depth - 1);

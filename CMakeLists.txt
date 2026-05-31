@@ -21,6 +21,7 @@ add_definitions(${LLVM_DEFINITIONS})
 add_llvm_library(PureFunctionChecker MODULE
     src/PureFunctionChecker.cpp
     src/PurityUtils.cpp
+    src/PureBugReporter.cpp
 
     PLUGIN_TOOL
     clang

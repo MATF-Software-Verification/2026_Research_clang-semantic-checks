@@ -1,6 +1,7 @@
 #include "../include/PureFunctionChecker.hpp"
 #include "../include/PurityUtils.hpp"
 #include "../include/PureState.hpp"
+#include "../include/PureBugReport.hpp"
 
 #include "clang/AST/Decl.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
@@ -74,10 +75,13 @@ void PureFunctionChecker::checkPreCall(
     if (isPureFunction(FD))
         return;
 
+    PureBugReporter::reportImpureCall(C, FD, this);
+    /*
     llvm::errs()
         << "PURE FUNCTION CALLS NON-PURE FUNCTION: "
         << FD->getNameAsString()
         << "\n";
+    */
         
 }
 
