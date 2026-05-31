@@ -13,13 +13,15 @@ namespace clang
             : public Checker<
                 check::BeginFunction,
                 check::EndFunction,
-                check::PreCall>
+                check::PreCall,
+                check::Bind>
         {
 
         public:
             void checkBeginFunction(CheckerContext &C) const;
             void checkEndFunction(const ReturnStmt *RS, CheckerContext &C) const;
             void checkPreCall(const CallEvent &Call, CheckerContext &C) const;
+            void checkBind(SVal Loc, SVal Val, const Stmt *S, bool AtDeclInit, CheckerContext &C) const;
         };
 
     }

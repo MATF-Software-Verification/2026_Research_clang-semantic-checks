@@ -9,7 +9,7 @@ using namespace ento;
 void PureBugReporter::reportImpureCall(
     CheckerContext &C,
     const FunctionDecl *FD,
-    const CheckerFrontend *Checker)
+    const PureFunctionChecker *Checker)
 {
     if (!FD)
         return;
@@ -29,6 +29,35 @@ void PureBugReporter::reportImpureCall(
     std::string Msg = "Pure function calls non-pure function '" + FD->getNameAsString() + "'";
 
     auto Report =std::make_unique<PathSensitiveBugReport>(*BT, Msg, N);
+
+    C.emitReport(std::move(Report));
+}
+void PureBugReporter::reportGlobalVariableUpdate(
+    CheckerContext &C,
+    const VarDecl *VD,
+    const PureFunctionChecker *Checker)
+{
+    if (!VD)
+        return;
+
+    static std::unique_ptr<BugType> BT;
+    if (!BT) {
+        BT = std::make_unique<BugType>(
+            Checker,
+            "Pure function modifies global variable",
+            "Pure Function Checker");
+    }
+
+    ExplodedNode *N = C.generateNonFatalErrorNode();
+    if (!N)
+        return;
+
+    std::string Msg =
+        "Pure function modifies global variable '" +
+        VD->getNameAsString() +
+        "'";
+
+    auto Report = std::make_unique<PathSensitiveBugReport>(*BT, Msg, N);
 
     C.emitReport(std::move(Report));
 }

@@ -3,6 +3,7 @@
 #include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
+#include "../include/PureFunctionChecker.hpp"
 
 #include <memory>
 
@@ -14,7 +15,8 @@ namespace clang
         class PureBugReporter
         {
         public:
-            static void reportImpureCall(CheckerContext &C, const FunctionDecl *FD, const CheckerFrontend *Checker);
+            static void reportImpureCall(CheckerContext &C, const FunctionDecl *FD, const PureFunctionChecker *Checker);
+            static void reportGlobalVariableUpdate(CheckerContext &C, const VarDecl *VD, const PureFunctionChecker *Checker);
         };
 
     }

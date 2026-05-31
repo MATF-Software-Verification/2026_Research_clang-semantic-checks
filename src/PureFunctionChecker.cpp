@@ -84,6 +84,35 @@ void PureFunctionChecker::checkPreCall(
     */
         
 }
+void PureFunctionChecker::checkBind(
+    SVal Loc, SVal Val, const Stmt *S, bool AtDeclInit, CheckerContext &C) const
+{
+    ProgramStateRef State = C.getState();
+
+    if (!isInsidePureFunction(State))
+        return;
+
+    const MemRegion *MR = Loc.getAsRegion();
+
+    if (!MR)
+        return;
+
+    const auto *VR = MR->getBaseRegion()->getAs<VarRegion>();
+
+    if (!VR)
+        return;
+
+    const VarDecl *VD = VR->getDecl();
+
+    if (!VD)
+        return;
+
+    if (!VD->hasGlobalStorage())
+        return;
+
+    PureBugReporter::reportGlobalVariableUpdate(C, VD, this);
+        
+}
 
 extern "C" void clang_registerCheckers(CheckerRegistry &registry)
 {
