@@ -4,8 +4,6 @@ project(PureFunctionChecker)
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(LLVM_DIR ~/Desktop/llvm-project/build/lib/cmake/llvm)
-set(Clang_DIR ~/Desktop/llvm-project/build/lib/cmake/clang)
 
 find_package(LLVM REQUIRED CONFIG)
 find_package(Clang REQUIRED CONFIG)

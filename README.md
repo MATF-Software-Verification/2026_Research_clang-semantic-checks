@@ -46,3 +46,9 @@ make
   -Xclang -analyzer-checker=is-pure-fun \
   ../tests/test.cpp
 ```
+
+### Or run all tests
+
+```bash
+./tests/run_tests.sh path/to/llvm/build
+```
