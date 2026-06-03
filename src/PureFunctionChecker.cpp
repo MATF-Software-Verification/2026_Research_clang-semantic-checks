@@ -76,18 +76,15 @@ void PureFunctionChecker::checkPreCall(
         return;
 
     PureBugReporter::reportImpureCall(C, FD, this);
-    /*
-    llvm::errs()
-        << "PURE FUNCTION CALLS NON-PURE FUNCTION: "
-        << FD->getNameAsString()
-        << "\n";
-    */
         
 }
+
 void PureFunctionChecker::checkBind(
     SVal Loc, SVal Val, const Stmt *S, bool AtDeclInit, CheckerContext &C) const
 {
     ProgramStateRef State = C.getState();
+
+    checkPointerWrite(S, C);
 
     if (!isInsidePureFunction(State))
         return;
@@ -120,4 +117,26 @@ extern "C" void clang_registerCheckers(CheckerRegistry &registry)
         "is-pure-fun",
         "Checks functions annotated as pure for possible side effects",
         "");
+}
+
+void PureFunctionChecker::checkPointerWrite(
+    const Stmt *Stmt,
+    CheckerContext &C) const
+{
+    const auto *BO =dyn_cast<BinaryOperator>(Stmt);
+
+    if (!BO)
+        return;
+
+    const Expr *LHS = BO->getLHS()->IgnoreParenImpCasts();
+
+    const auto *UO = dyn_cast<UnaryOperator>(LHS);
+
+    if (!UO)
+        return;
+
+    if (UO->getOpcode() != UO_Deref)
+        return;
+
+    PureBugReporter::reportPointerWrite(C, this);
 }
