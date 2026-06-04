@@ -18,6 +18,7 @@ namespace clang
             static void reportImpureCall(CheckerContext &C, const FunctionDecl *FD, const PureFunctionChecker *Checker);
             static void reportGlobalVariableUpdate(CheckerContext &C, const VarDecl *VD, const PureFunctionChecker *Checker);
             static void reportPointerWrite(CheckerContext &C, const PureFunctionChecker *Checker);
+            static void reportReferenceWrite(CheckerContext &C, const ParmVarDecl *PVD, const PureFunctionChecker *Checker);
         };
 
     }

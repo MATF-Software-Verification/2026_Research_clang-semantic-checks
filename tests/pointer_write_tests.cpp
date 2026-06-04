@@ -12,9 +12,17 @@ void pure_pointer_read(int *p)
     (void)x;
 }
 
+[[clang::annotate("pure")]]
+void pure_reference_write(int &x)
+{
+    x = 42; // expected warning
+}
+
 int main()
 {
     int value = 0;
     pure_pointer_write(&value);
+    pure_reference_write(value);
+    
     return 0;
 }

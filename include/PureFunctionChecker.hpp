@@ -25,7 +25,7 @@ namespace clang
 
         private:
             void checkPointerWrite(const Stmt *Stmt, CheckerContext &C) const;
-
+            void checkReferenceWrite(const Stmt *Stmt, CheckerContext &C) const;
         };
 
     }

@@ -85,3 +85,31 @@ void PureBugReporter::reportPointerWrite(
 
     C.emitReport(std::move(Report));
 }
+
+void PureBugReporter::reportReferenceWrite(
+    CheckerContext &C,
+    const ParmVarDecl *PVD,
+    const PureFunctionChecker *Checker)
+{
+    if (!PVD)
+        return;
+
+    static std::unique_ptr<BugType> BT;
+    if (!BT) {
+        BT = std::make_unique<BugType>(
+            Checker,
+            "Reference write in pure function",
+            "Pure Function Checker");
+    }
+
+    ExplodedNode *N = C.generateNonFatalErrorNode();
+
+    if (!N)
+        return;
+
+    std::string Msg = "Pure function writes through reference parameter '" + PVD->getNameAsString() + "'";
+
+    auto Report = std::make_unique<PathSensitiveBugReport>(*BT, Msg, N);
+
+    C.emitReport(std::move(Report));
+}

@@ -85,6 +85,7 @@ void PureFunctionChecker::checkBind(
     ProgramStateRef State = C.getState();
 
     checkPointerWrite(S, C);
+    checkReferenceWrite(S, C);
 
     if (!isInsidePureFunction(State))
         return;
@@ -139,4 +140,31 @@ void PureFunctionChecker::checkPointerWrite(
         return;
 
     PureBugReporter::reportPointerWrite(C, this);
+}
+
+void PureFunctionChecker::checkReferenceWrite(
+    const Stmt *Stmt,
+    CheckerContext &C) const
+{
+    const auto *BO = dyn_cast<BinaryOperator>(Stmt);
+
+    if (!BO)
+        return;
+
+    const Expr *LHS = BO->getLHS()->IgnoreParenImpCasts();
+
+    const auto *DRE = dyn_cast<DeclRefExpr>(LHS);
+
+    if (!DRE)
+        return;
+
+    const auto *PVD = dyn_cast<ParmVarDecl>(DRE->getDecl());
+
+    if (!PVD)
+        return;
+
+    if (!PVD->getType()->isReferenceType())
+        return;
+
+    PureBugReporter::reportReferenceWrite(C, PVD, this);
 }
