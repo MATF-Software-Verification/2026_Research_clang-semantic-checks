@@ -19,6 +19,8 @@ namespace clang
             static void reportGlobalVariableUpdate(CheckerContext &C, const VarDecl *VD, const PureFunctionChecker *Checker);
             static void reportPointerWrite(CheckerContext &C, const PureFunctionChecker *Checker);
             static void reportReferenceWrite(CheckerContext &C, const ParmVarDecl *PVD, const PureFunctionChecker *Checker);
+        private:
+            static void emitReport(CheckerContext &C, BugType &BT, llvm::StringRef Message);
         };
 
     }

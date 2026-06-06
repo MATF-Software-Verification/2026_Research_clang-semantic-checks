@@ -22,15 +22,9 @@ void PureBugReporter::reportImpureCall(
             "Pure Function Checker");
     }
 
-    ExplodedNode *N = C.generateNonFatalErrorNode();
-    if (!N)
-        return;
-
     std::string Msg = "Pure function calls non-pure function '" + FD->getNameAsString() + "'";
 
-    auto Report = std::make_unique<PathSensitiveBugReport>(*BT, Msg, N);
-
-    C.emitReport(std::move(Report));
+    emitReport(C, *BT, Msg);
 }
 void PureBugReporter::reportGlobalVariableUpdate(
     CheckerContext &C,
@@ -48,18 +42,12 @@ void PureBugReporter::reportGlobalVariableUpdate(
             "Pure Function Checker");
     }
 
-    ExplodedNode *N = C.generateNonFatalErrorNode();
-    if (!N)
-        return;
-
     std::string Msg =
         "Pure function modifies global variable '" +
         VD->getNameAsString() +
         "'";
 
-    auto Report = std::make_unique<PathSensitiveBugReport>(*BT, Msg, N);
-
-    C.emitReport(std::move(Report));
+    emitReport(C, *BT, Msg);
 }
 
 void PureBugReporter::reportPointerWrite(
@@ -74,16 +62,9 @@ void PureBugReporter::reportPointerWrite(
             "Pure Function Checker");
     }
 
-    ExplodedNode *N = C.generateNonFatalErrorNode();
-
-    if (!N)
-        return;
-
     std::string Msg = "Pure function writes through a pointer";
 
-    auto Report = std::make_unique<PathSensitiveBugReport>(*BT, Msg, N);
-
-    C.emitReport(std::move(Report));
+    emitReport(C, *BT, Msg);
 }
 
 void PureBugReporter::reportReferenceWrite(
@@ -102,14 +83,26 @@ void PureBugReporter::reportReferenceWrite(
             "Pure Function Checker");
     }
 
+    std::string Msg = "Pure function writes through reference parameter '" + PVD->getNameAsString() + "'";
+
+    emitReport(C, *BT, Msg);
+}
+
+void PureBugReporter::emitReport(
+    CheckerContext &C,
+    BugType &BT,
+    llvm::StringRef Message)
+{
     ExplodedNode *N = C.generateNonFatalErrorNode();
 
     if (!N)
         return;
 
-    std::string Msg = "Pure function writes through reference parameter '" + PVD->getNameAsString() + "'";
-
-    auto Report = std::make_unique<PathSensitiveBugReport>(*BT, Msg, N);
+    auto Report =
+        std::make_unique<PathSensitiveBugReport>(
+            BT,
+            Message,
+            N);
 
     C.emitReport(std::move(Report));
 }
