@@ -1,7 +1,19 @@
 [[clang::annotate("pure")]]
-void pure_pointer_write(int *p)
+void pure_pointer_safe_null()
 {
-    *p = 5; // expected warning
+    int *p = nullptr;
+
+    if (p) {
+        *p = 5; // no warning, unreachable
+    }
+}
+
+[[clang::annotate("pure")]]
+void pure_pointer_unsafe(int *p)
+{
+    if (p) {
+        *p = 5; // expected-warning
+    }
 }
 
 [[clang::annotate("pure")]]
@@ -15,14 +27,12 @@ void pure_pointer_read(int *p)
 [[clang::annotate("pure")]]
 void pure_reference_write(int &x)
 {
-    x = 42; // expected warning
+    x = 42; // expected-warning
 }
 
-int main()
+void regular_pointer_write(int *p)
 {
-    int value = 0;
-    pure_pointer_write(&value);
-    pure_reference_write(value);
-    
-    return 0;
+    if (p) {
+        *p = 10; // no warning, function is not pure
+    }
 }

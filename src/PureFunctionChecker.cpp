@@ -84,11 +84,11 @@ void PureFunctionChecker::checkBind(
 {
     ProgramStateRef State = C.getState();
 
-    checkPointerWrite(S, C);
-    checkReferenceWrite(S, C);
-
     if (!isInsidePureFunction(State))
         return;
+
+    checkPointerWrite(S, C);
+    checkReferenceWrite(S, C);
 
     const MemRegion *MR = Loc.getAsRegion();
 
@@ -124,7 +124,7 @@ void PureFunctionChecker::checkPointerWrite(
     const Stmt *Stmt,
     CheckerContext &C) const
 {
-    const auto *BO =dyn_cast<BinaryOperator>(Stmt);
+    const auto *BO = dyn_cast<BinaryOperator>(Stmt);
 
     if (!BO)
         return;
