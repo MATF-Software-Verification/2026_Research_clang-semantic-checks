@@ -15,6 +15,7 @@ namespace clang
         class PureBugReporter
         {
         public:
+            static void reportImpureFunction(CheckerContext &C, const FunctionDecl *FD, const PureFunctionChecker *Checker);
             static void reportImpureCall(CheckerContext &C, const FunctionDecl *FD, const PureFunctionChecker *Checker);
             static void reportGlobalVariableUpdate(CheckerContext &C, const VarDecl *VD, const PureFunctionChecker *Checker);
             static void reportPointerWrite(CheckerContext &C, const PureFunctionChecker *Checker);

@@ -27,26 +27,3 @@ bool ento::isPureFunction(const FunctionDecl *FD)
 
     return false;
 }
-
-
-bool ento::isInsidePureFunction(ProgramStateRef State)
-{
-    return State->get<PureDepth>() > 0;
-}
-
-ProgramStateRef ento::enterPureFunction(ProgramStateRef State)
-{
-    unsigned depth = State->get<PureDepth>();
-
-    return State->set<PureDepth>(depth + 1);
-}
-
-ProgramStateRef ento::leavePureFunction(ProgramStateRef State)
-{
-    unsigned depth = State->get<PureDepth>();
-
-    if (depth == 0)
-        return State;
-
-    return State->set<PureDepth>(depth - 1);
-}

@@ -32,11 +32,12 @@ void PureFunctionChecker::checkBeginFunction(
     if (!isPureFunction(FD))
         return;
 
-    llvm::errs() << "Entered PURE function: "
-                 << FD->getNameAsString()
-                 << "\n";
+    unsigned depth = State->get<PureDepth>();
 
-    State = enterPureFunction(State);
+    State = State->set<PureDepth>(depth + 1);
+
+    State = State->set<SideEffectsAtDepth>(depth + 1, false);
+
 
     C.addTransition(State);
 }
@@ -47,10 +48,32 @@ void PureFunctionChecker::checkEndFunction(
 {
     ProgramStateRef State = C.getState();
 
-    if (!State->get<PureDepth>())
+    unsigned Depth = State->get<PureDepth>();
+
+    if (Depth == 0)
         return;
 
-    State = leavePureFunction(State);
+    const auto *FD = dyn_cast<FunctionDecl>(C.getLocationContext()->getDecl());
+
+    if (!FD)
+        return;
+
+    if (!isPureFunction(FD))
+        return;
+
+    const bool *HasSideEffects = State->get<SideEffectsAtDepth>(Depth);
+
+    if (HasSideEffects && *HasSideEffects) {
+
+        PureBugReporter::reportImpureFunction(C, FD, this);
+
+        if (Depth > 1)
+            State = State->set<SideEffectsAtDepth>(Depth - 1, true);
+    }
+
+    State = State->remove<SideEffectsAtDepth>(Depth);
+
+    State = State->set<PureDepth>(Depth - 1);
 
     C.addTransition(State);
 }
@@ -61,7 +84,7 @@ void PureFunctionChecker::checkPreCall(
 {
     ProgramStateRef State = C.getState();
 
-    if (!isInsidePureFunction(State))
+    if (!(State->get<PureDepth>() > 0))
         return;
 
     const auto *FD = dyn_cast_or_null<FunctionDecl>(Call.getDecl());
@@ -69,14 +92,17 @@ void PureFunctionChecker::checkPreCall(
     if (!FD)
         return;
 
-    if (!FD->hasBody())
+    if (FD->hasBody())
         return;
 
     if (isPureFunction(FD))
         return;
 
-    PureBugReporter::reportImpureCall(C, FD, this);
-        
+    unsigned Depth = State->get<PureDepth>();
+
+    State = State->set<SideEffectsAtDepth>(Depth, true);
+
+    C.addTransition(State);
 }
 
 void PureFunctionChecker::checkBind(
@@ -84,7 +110,7 @@ void PureFunctionChecker::checkBind(
 {
     ProgramStateRef State = C.getState();
 
-    if (!isInsidePureFunction(State))
+    if (!(State->get<PureDepth>() > 0))
         return;
 
     checkPointerWrite(S, C);
@@ -139,7 +165,13 @@ void PureFunctionChecker::checkPointerWrite(
     if (UO->getOpcode() != UO_Deref)
         return;
 
-    PureBugReporter::reportPointerWrite(C, this);
+    ProgramStateRef State = C.getState();
+
+    unsigned Depth = State->get<PureDepth>();
+
+    State = State->set<SideEffectsAtDepth>(Depth, true);
+
+    C.addTransition(State);
 }
 
 void PureFunctionChecker::checkReferenceWrite(
@@ -166,5 +198,11 @@ void PureFunctionChecker::checkReferenceWrite(
     if (!PVD->getType()->isReferenceType())
         return;
 
-    PureBugReporter::reportReferenceWrite(C, PVD, this);
+    ProgramStateRef State = C.getState();
+
+    unsigned Depth = State->get<PureDepth>();
+
+    State = State->set<SideEffectsAtDepth>(Depth, true);
+
+    C.addTransition(State);
 }

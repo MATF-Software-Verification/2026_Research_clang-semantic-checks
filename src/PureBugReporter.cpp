@@ -6,6 +6,30 @@
 using namespace clang;
 using namespace ento;
 
+void PureBugReporter::reportImpureFunction(
+    CheckerContext &C,
+    const FunctionDecl *FD,
+    const PureFunctionChecker *Checker)
+{
+    if (!FD)
+        return;
+
+    static std::unique_ptr<BugType> BT;
+    if (!BT)
+    {
+        BT = std::make_unique<BugType>(
+            Checker,
+            "Function is not pure",
+            "Pure Function Checker");
+    }
+
+    std::string Msg =
+        "Function '" + FD->getNameAsString() +
+        "' is annotated as pure but has a feasible execution with side effects.";
+
+    emitReport(C, *BT, Msg);
+}
+
 void PureBugReporter::reportImpureCall(
     CheckerContext &C,
     const FunctionDecl *FD,
