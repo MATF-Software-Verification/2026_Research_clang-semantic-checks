@@ -7,4 +7,4 @@ REGISTER_TRAIT_WITH_PROGRAMSTATE(PureDepth, unsigned)
 REGISTER_MAP_WITH_PROGRAMSTATE(
     SideEffectsAtDepth,
     unsigned,
-    bool)
+    unsigned)

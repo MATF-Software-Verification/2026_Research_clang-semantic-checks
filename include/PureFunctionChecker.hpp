@@ -9,6 +9,15 @@ namespace clang
     namespace ento
     {
 
+        enum SideEffectKind : unsigned
+        {
+            NoSideEffect = 0,
+            GlobalWrite = 1 << 0,
+            PointerWrite = 1 << 1,
+            ReferenceWrite = 1 << 2,
+            UnknownCall = 1 << 3
+        };
+
         class PureFunctionChecker
             : public Checker<
                 check::BeginFunction,
@@ -26,7 +35,9 @@ namespace clang
         private:
             void checkPointerWrite(const Stmt *Stmt, CheckerContext &C) const;
             void checkReferenceWrite(const Stmt *Stmt, CheckerContext &C) const;
+            ProgramStateRef addSideEffect(ProgramStateRef State, SideEffectKind Kind) const;
         };
 
     }
 }
+

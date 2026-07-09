@@ -36,3 +36,15 @@ void regular_pointer_write(int *p)
         *p = 10; // no warning, function is not pure
     }
 }
+
+void helper_mix(int *p, int &r)
+{
+    *p = 10; // Pointer write
+    r = 20;  // Reference write
+}
+
+[[clang::annotate("pure")]]
+void foo_mix(int *p, int &r)
+{
+    helper_mix(p, r);
+}

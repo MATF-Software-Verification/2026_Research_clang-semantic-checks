@@ -36,7 +36,7 @@ void PureFunctionChecker::checkBeginFunction(
 
     State = State->set<PureDepth>(depth + 1);
 
-    State = State->set<SideEffectsAtDepth>(depth + 1, false);
+    State = State->set<SideEffectsAtDepth>(depth + 1, SideEffectKind::NoSideEffect);
 
 
     C.addTransition(State);
@@ -61,14 +61,21 @@ void PureFunctionChecker::checkEndFunction(
     if (!isPureFunction(FD))
         return;
 
-    const bool *HasSideEffects = State->get<SideEffectsAtDepth>(Depth);
+    const unsigned *Effects = State->get<SideEffectsAtDepth>(Depth);
 
-    if (HasSideEffects && *HasSideEffects) {
+    if (Effects && *Effects != SideEffectKind::NoSideEffect) {
 
-        PureBugReporter::reportImpureFunction(C, FD, this);
+        PureBugReporter::reportImpureFunction(C, FD, *Effects, this);
 
-        if (Depth > 1)
-            State = State->set<SideEffectsAtDepth>(Depth - 1, true);
+        if (Depth > 1){
+            const unsigned *ParentEffects = State->get<SideEffectsAtDepth>(Depth - 1);
+
+            unsigned ParentMask = ParentEffects ? *ParentEffects : NoSideEffect;
+
+            ParentMask |= *Effects;
+
+            State = State->set<SideEffectsAtDepth>(Depth - 1, ParentMask);
+        }
     }
 
     State = State->remove<SideEffectsAtDepth>(Depth);
@@ -98,9 +105,7 @@ void PureFunctionChecker::checkPreCall(
     if (isPureFunction(FD))
         return;
 
-    unsigned Depth = State->get<PureDepth>();
-
-    State = State->set<SideEffectsAtDepth>(Depth, true);
+    State = addSideEffect(State, SideEffectKind::UnknownCall);
 
     C.addTransition(State);
 }
@@ -167,9 +172,7 @@ void PureFunctionChecker::checkPointerWrite(
 
     ProgramStateRef State = C.getState();
 
-    unsigned Depth = State->get<PureDepth>();
-
-    State = State->set<SideEffectsAtDepth>(Depth, true);
+    State = addSideEffect(State, SideEffectKind::PointerWrite);
 
     C.addTransition(State);
 }
@@ -200,9 +203,25 @@ void PureFunctionChecker::checkReferenceWrite(
 
     ProgramStateRef State = C.getState();
 
-    unsigned Depth = State->get<PureDepth>();
-
-    State = State->set<SideEffectsAtDepth>(Depth, true);
+    State = addSideEffect(State, SideEffectKind::ReferenceWrite);
 
     C.addTransition(State);
+}
+
+ProgramStateRef PureFunctionChecker::addSideEffect(
+    ProgramStateRef State,
+    SideEffectKind Kind) const
+{
+    unsigned Depth = State->get<PureDepth>();
+
+    if (Depth == 0)
+        return State;
+
+    const unsigned *Effects = State->get<SideEffectsAtDepth>(Depth);
+
+    unsigned Mask = Effects ? *Effects : NoSideEffect;
+
+    Mask |= static_cast<unsigned>(Kind);
+
+    return State->set<SideEffectsAtDepth>(Depth, Mask);
 }
