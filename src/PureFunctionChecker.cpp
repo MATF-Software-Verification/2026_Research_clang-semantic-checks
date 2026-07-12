@@ -118,28 +118,35 @@ void PureFunctionChecker::checkBind(
     if (!(State->get<PureDepth>() > 0))
         return;
 
-    checkPointerWrite(S, C);
-    checkReferenceWrite(S, C);
+    unsigned DetectedEffects = SideEffectKind::NoSideEffect;
 
-    const MemRegion *MR = Loc.getAsRegion();
+    if (isGlobalWrite(Loc))
+        DetectedEffects |= SideEffectKind::GlobalWrite;
 
-    if (!MR)
+    if (isPointerWrite(S))
+        DetectedEffects |= SideEffectKind::PointerWrite;
+
+    if (isReferenceWrite(S))
+        DetectedEffects |= SideEffectKind::ReferenceWrite;
+
+    if (DetectedEffects == SideEffectKind::NoSideEffect)
         return;
 
-    const auto *VR = MR->getBaseRegion()->getAs<VarRegion>();
+    const unsigned Depth = State->get<PureDepth>();
 
-    if (!VR)
-        return;
+    const unsigned *CurrentEffects =
+        State->get<SideEffectsAtDepth>(Depth);
 
-    const VarDecl *VD = VR->getDecl();
+    unsigned UpdatedMask =
+        CurrentEffects
+            ? *CurrentEffects
+            : SideEffectKind::NoSideEffect;
 
-    if (!VD)
-        return;
+    UpdatedMask |= DetectedEffects;
 
-    if (!VD->hasGlobalStorage())
-        return;
+    State = State->set<SideEffectsAtDepth>(Depth, UpdatedMask);
 
-    PureBugReporter::reportGlobalVariableUpdate(C, VD, this);
+    C.addTransition(State);
         
 }
 
@@ -151,61 +158,55 @@ extern "C" void clang_registerCheckers(CheckerRegistry &registry)
         "");
 }
 
-void PureFunctionChecker::checkPointerWrite(
-    const Stmt *Stmt,
-    CheckerContext &C) const
+bool PureFunctionChecker::isGlobalWrite(SVal Loc) const
+{
+    const MemRegion *Region = Loc.getAsRegion();
+
+    if (!Region)
+        return false;
+
+    const auto *VarRegion =
+        Region->getBaseRegion()->getAs<clang::ento::VarRegion>();
+
+    if (!VarRegion)
+        return false;
+
+    const VarDecl *VD = VarRegion->getDecl();
+
+    return VD && VD->hasGlobalStorage();
+}
+
+bool PureFunctionChecker::isPointerWrite(const Stmt *Stmt) const
 {
     const auto *BO = dyn_cast<BinaryOperator>(Stmt);
 
-    if (!BO)
-        return;
+    if (!BO || !BO->isAssignmentOp())
+        return false;
 
     const Expr *LHS = BO->getLHS()->IgnoreParenImpCasts();
 
     const auto *UO = dyn_cast<UnaryOperator>(LHS);
 
-    if (!UO)
-        return;
-
-    if (UO->getOpcode() != UO_Deref)
-        return;
-
-    ProgramStateRef State = C.getState();
-
-    State = addSideEffect(State, SideEffectKind::PointerWrite);
-
-    C.addTransition(State);
+    return UO && UO->getOpcode() == UO_Deref;
 }
 
-void PureFunctionChecker::checkReferenceWrite(
-    const Stmt *Stmt,
-    CheckerContext &C) const
+bool PureFunctionChecker::isReferenceWrite(const Stmt *Stmt) const
 {
     const auto *BO = dyn_cast<BinaryOperator>(Stmt);
 
-    if (!BO)
-        return;
+    if (!BO || !BO->isAssignmentOp())
+        return false;
 
     const Expr *LHS = BO->getLHS()->IgnoreParenImpCasts();
 
     const auto *DRE = dyn_cast<DeclRefExpr>(LHS);
 
     if (!DRE)
-        return;
+        return false;
 
     const auto *PVD = dyn_cast<ParmVarDecl>(DRE->getDecl());
 
-    if (!PVD)
-        return;
-
-    if (!PVD->getType()->isReferenceType())
-        return;
-
-    ProgramStateRef State = C.getState();
-
-    State = addSideEffect(State, SideEffectKind::ReferenceWrite);
-
-    C.addTransition(State);
+    return PVD && PVD->getType()->isReferenceType();
 }
 
 ProgramStateRef PureFunctionChecker::addSideEffect(

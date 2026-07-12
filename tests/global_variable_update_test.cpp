@@ -34,3 +34,21 @@ int regular_updates_global()
     globalCounter = 20; // no warning
     return globalCounter;
 }
+
+[[clang::annotate("pure")]]
+void level3()
+{
+    globalCounter = 10;
+} // expected-warning: level3 has a global variable write
+
+[[clang::annotate("pure")]]
+void level2()
+{
+    level3();
+} // expected-warning: level2 inherits the side effect from level3
+
+[[clang::annotate("pure")]]
+void level1()
+{
+    level2();
+} // expected-warning: level1 inherits the side effect from level2

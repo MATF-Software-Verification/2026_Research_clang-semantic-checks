@@ -33,9 +33,10 @@ namespace clang
             void checkBind(SVal Loc, SVal Val, const Stmt *S, bool AtDeclInit, CheckerContext &C) const;
 
         private:
-            void checkPointerWrite(const Stmt *Stmt, CheckerContext &C) const;
-            void checkReferenceWrite(const Stmt *Stmt, CheckerContext &C) const;
             ProgramStateRef addSideEffect(ProgramStateRef State, SideEffectKind Kind) const;
+            bool isPointerWrite(const Stmt *Stmt) const;
+            bool isReferenceWrite(const Stmt *Stmt) const;
+            bool isGlobalWrite(SVal Loc) const;
         };
 
     }
