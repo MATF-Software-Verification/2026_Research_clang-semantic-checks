@@ -8,3 +8,8 @@ REGISTER_MAP_WITH_PROGRAMSTATE(
     SideEffectsAtDepth,
     unsigned,
     unsigned)
+
+REGISTER_MAP_WITH_PROGRAMSTATE(
+    FunctionKindsAtDepth,
+    unsigned,
+    unsigned)

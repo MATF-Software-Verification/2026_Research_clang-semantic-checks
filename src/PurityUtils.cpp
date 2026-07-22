@@ -7,10 +7,13 @@
 using namespace clang;
 using namespace ento;
 
-bool ento::isPureFunction(const FunctionDecl *FD)
+bool ento::isPureFunction(const FunctionDecl *FD) // returns true for both pure and const functions (const extends pure)
 {
     if (!FD)
         return false;
+
+    if (isConstFunction(FD))
+        return true;
 
     if (FD->hasAttr<PureAttr>())
         return true;
@@ -20,10 +23,21 @@ bool ento::isPureFunction(const FunctionDecl *FD)
             return true;
     }
 
-    llvm::StringRef Name = FD->getName();
+     return FD->getName().starts_with("pure_");
+}
 
-    if (Name.starts_with("pure_"))
+bool ento::isConstFunction(const FunctionDecl *FD)
+{
+    if (!FD)
+        return false;
+
+    if (FD->hasAttr<ConstAttr>())
         return true;
 
-    return false;
+    for (const auto *Attr : FD->specific_attrs<AnnotateAttr>()) {
+        if (Attr->getAnnotation() == "const")
+            return true;
+    }
+
+    return FD->getName().starts_with("const_");
 }

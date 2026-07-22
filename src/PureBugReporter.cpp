@@ -1,5 +1,6 @@
 #include "../include/PureBugReport.hpp"
 #include "../include/PureState.hpp"
+#include "../include/PurityUtils.hpp"
 
 #include "clang/AST/Decl.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
@@ -26,8 +27,10 @@ void PureBugReporter::reportImpureFunction(
     }
 
     std::string Msg =
-        "Function '" + FD->getNameAsString() +
-        "' is annotated as pure but has a feasible execution with side effects:\n";
+    "Function '" + FD->getNameAsString() +
+    "' is annotated as " +
+    (isConstFunction(FD) ? "const" : "pure") +
+    " but has a feasible execution with side effects:\n";
 
     bool First = true;
 
@@ -51,6 +54,11 @@ void PureBugReporter::reportImpureFunction(
 
     if (SideEffects & UnknownCall)
         AddEffect("a call to a function with unknown purity");
+    
+    if (SideEffects & SideEffectKind::InsufficientlyPureCall)
+    {
+        AddEffect("a call to a pure function that does not satisfy const function requirements");
+    }
 
     Msg += ".";
 

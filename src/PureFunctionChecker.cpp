@@ -29,7 +29,14 @@ void PureFunctionChecker::checkBeginFunction(
     if (!FD)
         return;
 
-    if (!isPureFunction(FD))
+    FunctionKind Kind = NoFunctionKind;
+
+    if (isConstFunction(FD))
+        Kind = ConstFunctionKind;
+    else if (isPureFunction(FD))
+        Kind = PureFunctionKind;
+
+    if (Kind == NoFunctionKind)
         return;
 
     unsigned depth = State->get<PureDepth>();
@@ -38,6 +45,7 @@ void PureFunctionChecker::checkBeginFunction(
 
     State = State->set<SideEffectsAtDepth>(depth + 1, SideEffectKind::NoSideEffect);
 
+    State = State->set<FunctionKindsAtDepth>(depth + 1, static_cast<unsigned>(Kind));
 
     C.addTransition(State);
 }
@@ -79,6 +87,7 @@ void PureFunctionChecker::checkEndFunction(
     }
 
     State = State->remove<SideEffectsAtDepth>(Depth);
+    State = State->remove<FunctionKindsAtDepth>(Depth);
 
     State = State->set<PureDepth>(Depth - 1);
 
@@ -102,10 +111,30 @@ void PureFunctionChecker::checkPreCall(
     if (FD->hasBody())
         return;
 
-    if (isPureFunction(FD))
+    const unsigned *Kind = State->get<FunctionKindsAtDepth>(State->get<PureDepth>());
+
+    if (!Kind)
         return;
 
-    State = addSideEffect(State, SideEffectKind::UnknownCall);
+    // const can call only const function (calling pure is not safe by default), while pure can call both pure and const functions
+
+    if (*Kind == ConstFunctionKind) {
+        if (isConstFunction(FD))
+            return;
+
+        if (isPureFunction(FD)) {
+            State = addSideEffect(State, SideEffectKind::InsufficientlyPureCall);
+        }
+        else {
+            State = addSideEffect(State, SideEffectKind::UnknownCall);
+        }
+    }
+    else {
+        if (isPureFunction(FD))
+            return;
+
+        State = addSideEffect(State, SideEffectKind::UnknownCall);
+    }
 
     C.addTransition(State);
 }

@@ -8,6 +8,12 @@ namespace clang
 {
     namespace ento
     {
+        enum FunctionKind : unsigned
+        {
+            NoFunctionKind = 0,
+            PureFunctionKind,
+            ConstFunctionKind
+        };
 
         enum SideEffectKind : unsigned
         {
@@ -15,7 +21,8 @@ namespace clang
             GlobalWrite = 1 << 0,
             PointerWrite = 1 << 1,
             ReferenceWrite = 1 << 2,
-            UnknownCall = 1 << 3
+            UnknownCall = 1 << 3,
+            InsufficientlyPureCall = 1 << 4
         };
 
         class PureFunctionChecker

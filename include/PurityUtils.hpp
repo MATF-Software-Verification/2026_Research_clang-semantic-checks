@@ -8,5 +8,6 @@ namespace clang
     namespace ento
     {
         bool isPureFunction(const FunctionDecl *FD);
+        bool isConstFunction(const FunctionDecl *FD);
     }
 }

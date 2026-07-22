@@ -22,6 +22,35 @@ Functions are recognized as pure if:
 ```cpp
 pure_
 ```
+Functions are recognized as const if:
+
+- they are annotated with
+
+```cpp
+[[clang::annotate("const")]]
+```
+
+- they use the GNU const attribute
+
+```cpp
+[[gnu::const]]
+```
+
+- or their name starts with
+
+```cpp
+const_
+```
+## Current checks
+
+For both `pure` and `const` functions the checker reports:
+
+- writes to global variables
+- writes through pointers
+- writes through references
+- calls to functions that violate purity requirements
+
+Additionally, `const` functions may only call other `const` functions.
 
 ## Build
 
