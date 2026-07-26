@@ -13,7 +13,23 @@
 \usepackage{graphicx}
 \usepackage{float}
 \usepackage{amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
 
+
+
+\lstset{
+    language=C++,
+    basicstyle=\ttfamily\scriptsize,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!50!black},
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single,
+    breaklines=true,
+    showstringspaces=false
+}
 
 \begin{document}
 
@@ -45,17 +61,19 @@
 \section{Opis problema}
 
 Savremeni C i C++ kompajleri podržavaju različite funkcijske atribute kojima programer može eksplicitno da opiše osobine funkcija. 
-Ove informacije omogućavaju kompajleru da primeni optimizacije.
-
 Dva atributa ove vrste koja su se izučavala u ovom radu su \texttt{pure} i \texttt{const}. 
 Oba atributa opisuju funkcije koje nemaju sporedne efekte (eng. \emph{observable side effects}), 
 ali se razlikuju po tome koliko je funkciji dozvoljeno da pristupa memoriji i od čega sme da zavisi njena povratna vrednost. 
 
 Ove informacije kompajler koristi za optimizacije zasnovanih na pretpostavci da će funkcija za iste ulazne argumente vratiti isti rezultat.
-Atributi \texttt{pure} i \texttt{const} prvenstveno služe kao informacije koje programer prosleđuje kompajleru radi optimizacije programa. 
-Kompajler ne proverava da li implementacija zaista zadovoljava uslove koje atribut nameće, 
+Atributi \texttt{pure} i \texttt{const} prvenstveno služe kao informacije koje programer prosleđuje kompajleru, 
+kompajler ne proverava da li implementacija zaista zadovoljava uslove koje atribut nameće, 
 već pretpostavlja da je deklaracija tačna i na osnovu nje primenjuje odgovarajuće optimizacije.
 Zbog toga pogrešno označavanje funkcije može dovesti do neispravnih optimizacija i promenjenog ponašanja programa. 
+U ovom radu Clang Static Analyzer korišćen je za implementaciju proveravača koji analizira funkcije označene atributima \texttt{pure} i \texttt{const}. 
+Tokom simboličkog izvršavanja proveravač prati da li funkcija proizvodi sporedne efekte, kao i da li pristupa memoriji na način koji nije dozvoljen za odgovarajući atribut.
+
+
 
 \subsection{Pure funkcije}
 
@@ -93,18 +111,15 @@ Može da piše preko pokazivača/referenci & $\times$ & $\times$ \\
 \label{tab:pure_const}
 \end{table}
 
+\section{Opis arhitekture sistema} djurjda
+
 \subsection{Clang Static Analyzer}
 
 Clang Static Analyzer (CSA) predstavlja alat za statičku analizu programa koji je deo LLVM/Clang kompajlerske infrastrukture. 
 Analiza se zasniva na simboličkom izvršavanju (engl. \emph{symbolic execution}), 
 pri čemu se istovremeno razmatraju različiti tokovi izvršavanja i održava apstraktno stanje programa koje opisuje vrednosti promenljivih, sadržaj memorije i druge relevantne informacije.
 
-U ovom radu Clang Static Analyzer korišćen je za implementaciju proveravača koji analizira funkcije označene atributima \texttt{pure} i \texttt{const}. 
-Tokom simboličkog izvršavanja proveravač prati da li funkcija proizvodi sporedne efekte, kao i da li pristupa memoriji na način koji nije dozvoljen za odgovarajući atribut.
 
-
-
-\section{Opis arhitekture sistema} djurjda
 
 checker
 - callback
@@ -113,13 +128,63 @@ bugreport pbjasniti i maske
 (util)
 koriscenje
 
-\section{opis rešenja problema (osnovne ideje, obrazloženja za ključne odluke, opis osnovnog algoritma)} specificno
+\section{Opis rešenja problema}
 
-\subsection{pure checker}
--- nabrojati provere koje proveravamo (sa primerima?) anja
--- objasniti program state anja
+Analiza se sastoji iz četiri osnovna koraka: identifikacije funkcija koje treba proveravati, praćenja trenutnog stanja analize, 
+detekcije sporednih efekata i prijavljivanja dijagnostike po završetku analize funkcije. 
+Jedna od ključnih prednosti implementacije jeste korišćenje path-sensitive analize koju obezbeđuje Clang Static Analyzer. 
+Umesto analize sintaksne strukture programa, proveravač razmatra različite tokove izvršavanja i održava posebno stanje za svaki od njih. 
+Zbog toga se upozorenje prijavljuje samo ukoliko je sporedni efekat dostižan na posmatranom toku izvršavanja.
+
+
+U okviru \texttt{ProgramState} proveravač održava trenutni nivo ugnježđenja analiziranih \texttt{pure} funkcija (\texttt{PureDepth}), 
+tip funkcije na svakom nivou ugnježđenja i skup detektovanih sporednih efekata za svaki nivo poziva. 
+Na ovaj način moguće je nezavisno analizirati ugnježđene pozive funkcija, a nakon završetka analize propagirati pronađene sporedne efekte ka funkciji koja ih je pozvala.
+
+
+\subsection{Pure checker}
+
+Pure checker je proveravač namenjen proveri funkcija označenih atributom \texttt{pure}. 
+Tokom analize proveravaju se sledeći uslovi koje \texttt{pure} funkcija mora da zadovolji:
+
+\begin{itemize}
+    \item ne sme da upisuje u globalne promenljive,
+    \item ne sme da upisuje preko pokazivača,
+    \item ne sme da upisuje preko referenci,
+    \item ne sme da poziva funkcije za koje nije moguće proveriti da li su pure.
+\end{itemize}
+
+Na primer, ukoliko funkcija poziva drugu funkciju koja menja globalnu promenljivu samo kada je argument negativan, 
+a analizom je utvrđeno da argument na posmatranom putu uvek ima nenegativnu vrednost, 
+put koji sadrži upis u globalnu promenljivu smatra se nedostižnim i upozorenje se neće prijaviti. 
+Sa druge strane, ukoliko takva garancija ne postoji, proveravač prijavljuje da funkcija narušava uslove atributa \texttt{pure}.
+
+\begin{lstlisting}[caption={Path-sensitive analiza},label={lst:path-sensitive}]
+int globalCounter = 0;
+
+void update_global_if_negative(int x)
+{
+    if (x < 0)
+        globalCounter = 10;
+}
+
+[[clang::annotate("pure")]]
+int pure_safe()
+{
+    unsigned short x = 10;
+    update_global_if_negative(x); // nema upozorenja
+    return x;
+}
+
+[[clang::annotate("pure")]]
+int pure_unsafe(int x)
+{
+    update_global_if_negative(x); // upozorenje
+    return x;
+}
+\end{lstlisting}
+
 -- objasniti po callbackovima djurdja
--- objasniti da je sve path sensitive sa primerom anja
 
 
 \subsection{const checker} djurjda
