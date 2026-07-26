@@ -43,16 +43,16 @@ void PureBugReporter::reportImpureFunction(
         First = false;
     };
 
-    if (SideEffects & GlobalWrite)
+    if (SideEffects & SideEffectKind::GlobalWrite)
         AddEffect("a global variable write");
 
-    if (SideEffects & PointerWrite)
+    if (SideEffects & SideEffectKind::PointerWrite)
         AddEffect("a pointer write");
 
-    if (SideEffects & ReferenceWrite)
+    if (SideEffects & SideEffectKind::ReferenceWrite)
         AddEffect("a reference write");
 
-    if (SideEffects & UnknownCall)
+    if (SideEffects & SideEffectKind::UnknownCall)
         AddEffect("a call to a function with unknown purity");
     
     if (SideEffects & SideEffectKind::InsufficientlyPureCall)

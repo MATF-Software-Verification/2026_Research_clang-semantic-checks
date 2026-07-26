@@ -1,0 +1,136 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage[serbian]{babel}
+\usepackage{url}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amssymb}
+
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \begin{figure}[htbp]
+        \centering
+        \includegraphics[width=0.4\textwidth]{./pictures/logo.png}
+    \end{figure}
+    { Univerzitet u Beogradu \\ Matematički fakultet\par}
+
+    \vfill
+    {\Large \textbf{Seminarski rad iz Verfikacije softvera}\par}
+    \vspace{1cm}
+    {\Large \textbf{Clang semantička provera: Čiste i konstantne funkcije}\par}
+    \vfill
+
+    \begin{tabbing}
+    \hspace{10cm} \= \hspace{10cm} \= \kill
+    \textbf{Profesor i asistent:} \>  \textbf{Studenti:} \\
+    prof. dr Milena Vujošević Janičić   \> Đurđa Milošević 1008/2025 \\
+    Ivan Ristović                       \> Anja Milutinović 1011/2025 \\
+
+    \end{tabbing}
+    \vfill
+    \textbf{Datum:} 2026.
+\end{titlepage}
+
+\section{Opis problema}
+
+Savremeni C i C++ kompajleri podržavaju različite funkcijske atribute kojima programer može eksplicitno da opiše osobine funkcija. 
+Ove informacije omogućavaju kompajleru da primeni optimizacije.
+
+Dva atributa ove vrste koja su se izučavala u ovom radu su \texttt{pure} i \texttt{const}. 
+Oba atributa opisuju funkcije koje nemaju sporedne efekte (eng. \emph{observable side effects}), 
+ali se razlikuju po tome koliko je funkciji dozvoljeno da pristupa memoriji i od čega sme da zavisi njena povratna vrednost. 
+
+Ove informacije kompajler koristi za optimizacije zasnovanih na pretpostavci da će funkcija za iste ulazne argumente vratiti isti rezultat.
+Atributi \texttt{pure} i \texttt{const} prvenstveno služe kao informacije koje programer prosleđuje kompajleru radi optimizacije programa. 
+Kompajler ne proverava da li implementacija zaista zadovoljava uslove koje atribut nameće, 
+već pretpostavlja da je deklaracija tačna i na osnovu nje primenjuje odgovarajuće optimizacije.
+Zbog toga pogrešno označavanje funkcije može dovesti do neispravnih optimizacija i promenjenog ponašanja programa. 
+
+\subsection{Pure funkcije}
+
+Funkcija označena atributom \texttt{pure} ne sme da menja stanje programa koje je vidljivo ostatku programa. 
+Jedini rezultat njenog izvršavanja sme biti povratna vrednost funkcije.
+Funkcija sa atributom \texttt{pure} sme da čita proizvoljne nepromenljive (eng. \emph{non-volatile}) objekte iz memorije, 
+uključujući globalne promenljive i objekte do kojih dolazi preko pokazivača ili referenci. 
+Međutim, nije dozvoljeno da ih menja niti da izvršava bilo kakve druge operacije koje proizvode sporedne efekte. 
+Ukoliko se vrednosti koje funkcija čita promene između dva poziva, može se promeniti i rezultat funkcije, 
+pa se optimizacije mogu primeniti samo dok kompajler može da garantuje da se relevantno stanje nije promenilo. \cite{gcc-pure-const}
+
+\subsection{Const funkcije}
+
+Atribut \texttt{const} predstavlja strožiju verziju atributa \texttt{pure}. 
+Pored toga što funkcija ne sme da proizvodi sporedne efekte, njena povratna vrednost sme da zavisi isključivo od vrednosti njenih argumenata. 
+Odnosno, funkcija ne sme da čita promenljive čija bi promena mogla da utiče na rezultat funkcije. 
+Dozvoljeno je jedino čitanje objekata koji predstavljaju konstante i čija vrednost ne može da se promeni tokom izvršavanja programa.
+Zbog toga se ovakav atribut uglavnom ne koristi za funkcije koje primaju pokazivače ili reference, jer sadržaj memorije na koji oni pokazuju može da se promeni između dva poziva funkcije. \cite{gcc-pure-const}
+
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Osobina} & \textbf{pure} & \textbf{const} \\
+\hline
+Nema sporednih efekata & \checkmark & \checkmark \\
+Može da čita globalne promenljive & \checkmark & $\times$ \\
+Može da menja vrednost globalne promenljive & $\times$ & $\times$ \\
+Može da čita preko pokazivača/referenci & \checkmark & $\times$ \\
+Može da piše preko pokazivača/referenci & $\times$ & $\times$ \\
+\hline
+\end{tabular}
+\caption{Poređenje atributa \texttt{pure} i \texttt{const}}
+\label{tab:pure_const}
+\end{table}
+
+\subsection{Clang Static Analyzer}
+
+Clang Static Analyzer (CSA) predstavlja alat za statičku analizu programa koji je deo LLVM/Clang kompajlerske infrastrukture. 
+Analiza se zasniva na simboličkom izvršavanju (engl. \emph{symbolic execution}), 
+pri čemu se istovremeno razmatraju različiti tokovi izvršavanja i održava apstraktno stanje programa koje opisuje vrednosti promenljivih, sadržaj memorije i druge relevantne informacije.
+
+U ovom radu Clang Static Analyzer korišćen je za implementaciju proveravača koji analizira funkcije označene atributima \texttt{pure} i \texttt{const}. 
+Tokom simboličkog izvršavanja proveravač prati da li funkcija proizvodi sporedne efekte, kao i da li pristupa memoriji na način koji nije dozvoljen za odgovarajući atribut.
+
+
+
+\section{Opis arhitekture sistema} djurjda
+
+checker
+- callback
+programstate
+bugreport pbjasniti i maske
+(util)
+koriscenje
+
+\section{opis rešenja problema (osnovne ideje, obrazloženja za ključne odluke, opis osnovnog algoritma)} specificno
+
+\subsection{pure checker}
+-- nabrojati provere koje proveravamo (sa primerima?) anja
+-- objasniti program state anja
+-- objasniti po callbackovima djurdja
+-- objasniti da je sve path sensitive sa primerom anja
+
+
+\subsection{const checker} djurjda
+-- objasniti da li je razdvojeno i da li jeste ili nije i zasto
+-- objsniti razliku u odnosu na pure
+
+
+\section{Zaključak} djurdja
+
+
+\bibliographystyle{plain}
+\bibliography{literatura}
+
+\end{document}

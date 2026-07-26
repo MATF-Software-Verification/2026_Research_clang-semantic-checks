@@ -2,4 +2,12 @@ build
 
 *.plist
 
-anja*
+
+
+*.aux
+*.fls
+*.log
+*.gz
+*.fdb*
+*.bbl
+*.blg
