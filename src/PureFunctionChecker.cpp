@@ -4,6 +4,7 @@
 #include "../include/PureBugReport.hpp"
 
 #include "clang/AST/Decl.h"
+#include "clang/StaticAnalyzer/Core/AnalyzerOptions.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramStateTrait.h"
@@ -29,6 +30,9 @@ void PureFunctionChecker::checkBeginFunction(
     if (!FD)
         return;
 
+    if (!shouldCheckFunction(FD))
+        return;
+    
     FunctionKind Kind = NoFunctionKind;
 
     if (isConstFunction(FD))
@@ -66,7 +70,7 @@ void PureFunctionChecker::checkEndFunction(
     if (!FD)
         return;
 
-    if (!isPureFunction(FD))
+    if (!shouldCheckFunction(FD))
         return;
 
     const unsigned *Effects = State->get<SideEffectsAtDepth>(Depth);
@@ -179,12 +183,45 @@ void PureFunctionChecker::checkBind(
         
 }
 
+static void registerPureFunctionChecker(
+    CheckerManager &Mgr)
+{
+    auto *Checker = Mgr.registerChecker<PureFunctionChecker>();
+
+    const AnalyzerOptions &Options = Mgr.getAnalyzerOptions();
+
+    const auto Mode = Options.getCheckerStringOption(Checker, "Mode");
+
+    if (Mode == "pure")
+        Checker->setMode(CheckerMode::Pure);
+    else if (Mode == "const")
+        Checker->setMode(CheckerMode::Const);
+    else
+        Checker->setMode(CheckerMode::Both);
+}
+static bool shouldRegisterPureFunctionChecker(
+    const CheckerManager &)
+{
+    return true;
+}
+
 extern "C" void clang_registerCheckers(CheckerRegistry &registry)
 {
-    registry.addChecker<PureFunctionChecker>(
+    registry.addChecker(
+        &registerPureFunctionChecker,
+        &shouldRegisterPureFunctionChecker,
         "is-pure-fun",
-        "Checks functions annotated as pure for possible side effects",
-        "");
+        "Checks pure and const function requirements",
+        "NoDocsUri",
+        false);
+
+    registry.addCheckerOption(
+        "string",
+        "is-pure-fun",
+        "Mode",
+        "both",
+        "Select functions to check: pure, const, or both",
+        "released");
 }
 
 bool PureFunctionChecker::isGlobalWrite(SVal Loc) const
@@ -254,4 +291,23 @@ ProgramStateRef PureFunctionChecker::addSideEffect(
     Mask |= static_cast<unsigned>(Kind);
 
     return State->set<SideEffectsAtDepth>(Depth, Mask);
+}
+bool PureFunctionChecker::shouldCheckFunction(const FunctionDecl *FD) const
+{
+    if (!FD)
+        return false;
+
+    switch (Mode)
+    {
+    case CheckerMode::Pure:
+        return isPureFunction(FD) && !isConstFunction(FD);
+
+    case CheckerMode::Const:
+        return isConstFunction(FD);
+
+    case CheckerMode::Both:
+        return isPureFunction(FD);
+    }
+
+    return false;
 }

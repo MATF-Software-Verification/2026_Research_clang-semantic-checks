@@ -8,6 +8,13 @@ namespace clang
 {
     namespace ento
     {
+        enum class CheckerMode
+        {
+            Pure,
+            Const,
+            Both
+        };
+
         enum FunctionKind : unsigned
         {
             NoFunctionKind = 0,
@@ -34,12 +41,18 @@ namespace clang
         {
 
         public:
+            void setMode(CheckerMode NewMode)
+            {
+                Mode = NewMode;
+            }
             void checkBeginFunction(CheckerContext &C) const;
             void checkEndFunction(const ReturnStmt *RS, CheckerContext &C) const;
             void checkPreCall(const CallEvent &Call, CheckerContext &C) const;
             void checkBind(SVal Loc, SVal Val, const Stmt *S, bool AtDeclInit, CheckerContext &C) const;
 
         private:
+            CheckerMode Mode = CheckerMode::Both;
+            bool shouldCheckFunction(const FunctionDecl *FD) const;
             ProgramStateRef addSideEffect(ProgramStateRef State, SideEffectKind Kind) const;
             bool isPointerWrite(const Stmt *Stmt) const;
             bool isReferenceWrite(const Stmt *Stmt) const;

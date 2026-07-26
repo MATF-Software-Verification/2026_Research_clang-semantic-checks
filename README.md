@@ -73,11 +73,34 @@ make
   -Xclang -load \
   -Xclang ./PureFunctionChecker.so \
   -Xclang -analyzer-checker=is-pure-fun \
+  -Xclang -analyzer-config \
+  -Xclang is-pure-fun:Mode=both \
   ../tests/test.cpp
 ```
+
+
+Available modes:
+
+- `pure` – checks only pure functions
+- `const` – checks only const functions
+- `both` – checks both pure and const functions
+
+The default mode is `both`.
 
 ### Or run all tests
 
 ```bash
-./tests/run_tests.sh path/to/llvm/build
+./tests/run_tests.sh path/to/llvm/build both
+```
+
+For example, to check only const functions:
+
+```bash
+./tests/run_tests.sh path/to/llvm/build const
+```
+
+To check only pure functions:
+
+```bash
+./tests/run_tests.sh path/to/llvm/build pure
 ```
