@@ -57,9 +57,4 @@ void level1()
 void foo()
 {
     level2();
-} 
-
-void const_unsafe()
-{
-    globalCounter = 10;
-} 
+}

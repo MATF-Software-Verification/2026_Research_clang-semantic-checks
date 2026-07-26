@@ -16,12 +16,6 @@ Functions are recognized as pure if:
 ```cpp
 [[gnu::pure]]
 ```
-
-- or their name starts with
-
-```cpp
-pure_
-```
 Functions are recognized as const if:
 
 - they are annotated with
@@ -34,12 +28,6 @@ Functions are recognized as const if:
 
 ```cpp
 [[gnu::const]]
-```
-
-- or their name starts with
-
-```cpp
-const_
 ```
 ## Current checks
 

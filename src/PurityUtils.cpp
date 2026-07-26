@@ -15,15 +15,12 @@ bool ento::isPureFunction(const FunctionDecl *FD) // returns true for both pure 
     if (isConstFunction(FD))
         return true;
 
-    if (FD->hasAttr<PureAttr>())
-        return true;
-
     for (const auto *Attr : FD->specific_attrs<AnnotateAttr>()) {
         if (Attr->getAnnotation() == "pure")
             return true;
     }
 
-     return FD->getName().starts_with("pure_");
+     return FD->hasAttr<PureAttr>();
 }
 
 bool ento::isConstFunction(const FunctionDecl *FD)
@@ -31,13 +28,10 @@ bool ento::isConstFunction(const FunctionDecl *FD)
     if (!FD)
         return false;
 
-    if (FD->hasAttr<ConstAttr>())
-        return true;
-
     for (const auto *Attr : FD->specific_attrs<AnnotateAttr>()) {
         if (Attr->getAnnotation() == "const")
             return true;
     }
 
-    return FD->getName().starts_with("const_");
+    return FD->hasAttr<ConstAttr>();
 }
