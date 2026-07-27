@@ -93,7 +93,10 @@ For both `pure` and `const` functions the checker reports:
 - writes through references
 - calls to functions that violate purity requirements
 
-Additionally, `const` functions may only call other `const` functions.
+For `const` functions:
+- reads global variables
+- call non `const` functions, that can't be analysed
+
 
 ## Testing
 
