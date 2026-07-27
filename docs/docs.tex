@@ -73,8 +73,6 @@ Zbog toga pogrešno označavanje funkcije može dovesti do neispravnih optimizac
 U ovom radu Clang Static Analyzer korišćen je za implementaciju proveravača koji analizira funkcije označene atributima \texttt{pure} i \texttt{const}. 
 Tokom simboličkog izvršavanja proveravač prati da li funkcija proizvodi sporedne efekte, kao i da li pristupa memoriji na način koji nije dozvoljen za odgovarajući atribut.
 
-
-
 \subsection{Pure funkcije}
 
 Funkcija označena atributom \texttt{pure} ne sme da menja stanje programa koje je vidljivo ostatku programa. 
@@ -111,7 +109,19 @@ Može da piše preko pokazivača/referenci & $\times$ & $\times$ \\
 \label{tab:pure_const}
 \end{table}
 
-\section{Opis arhitekture sistema} djurjda
+\section{Opis arhitekture sistema}
+
+Arhitektura sistema organizovana je kroz više komponenti sa jasno razdvojenim odgovornostima. Centralnu komponentu predstavlja klasa \\
+\texttt{PureFunctionChecker}, koja implementira callback metode Clang Static \\
+Analyzer-a. Ove metode se aktiviraju u različitim fazama analize, kao što su ulazak u funkciju, poziv druge funkcije, upis u memoriju i završetak analize funkcije.
+
+\texttt{ProgramState} se koristi za čuvanje informacija tokom simboličkog izvršavanja. U fajlu \texttt{PureState} definisane su dodatne vrednosti koje checker upisuje u stanje, kao što su trenutna dubina analize, vrsta funkcije na određenoj dubini i do tada otkriveni sporedni efekti.
+
+Komponenta \texttt{PureBugReporter} zadužena je za formiranje i prijavljivanje dijagnostičkih poruka. Na taj način je logika detekcije nepravilnosti odvojena od logike prikazivanja upozorenja korisniku.
+
+Pomoćne funkcije za prepoznavanje \texttt{pure} i \texttt{const} funkcija izdvojene su u komponentu \texttt{PurityUtils}. Ove funkcije analiziraju deklaraciju funkcije i proveravaju prisustvo odgovarajućih GNU atributa ili \texttt{clang::annotate} anotacija.
+
+Checker podržava tri režima rada: analizu samo \texttt{pure} funkcija, samo \texttt{const} funkcija ili obe vrste funkcija. Režim rada bira se prilikom pokretanja analizatora, prosleđivanjem odgovarajuće vrednosti opcije \texttt{Mode}. Na ovaj način ista implementacija može da se koristi za različite potrebe analize bez uvođenja odvojenih checker-a sa dupliciranom logikom.
 
 \subsection{Clang Static Analyzer}
 
@@ -119,14 +129,12 @@ Clang Static Analyzer (CSA) predstavlja alat za statičku analizu programa koji 
 Analiza se zasniva na simboličkom izvršavanju (engl. \emph{symbolic execution}), 
 pri čemu se istovremeno razmatraju različiti tokovi izvršavanja i održava apstraktno stanje programa koje opisuje vrednosti promenljivih, sadržaj memorije i druge relevantne informacije.
 
+CSA omogućava proširivanje postojećeg sistema dodavanjem sopstvenih checker-a. Checker predstavlja komponentu koja reaguje na određene događaje tokom analize programa i proverava specifična svojstva izvornog koda. U tu svrhu koristi se sistem callback metoda koje CSA automatski poziva kada tokom simboličkog izvršavanja dođe do određenog događaja.
 
+U implementiranom checker-u koriste se callback metode koje Clang Static Analyzer poziva u različitim fazama simboličkog izvršavanja programa. Svaka callback metoda ima jasno definisanu odgovornost u procesu analize.
 
-checker
-- callback
-programstate
-bugreport pbjasniti i maske
-(util)
-koriscenje
+Za evidentiranje pronađenih sporednih efekata koristi se bit-maska. Svakoj vrsti sporednog efekta dodeljen je poseban bit, pri čemu se efekti mogu kombinovati primenom bitovske operacije OR.
+Prilikom detekcije novog sporednog efekta odgovarajući bit postavlja se u maski, dok se pri završetku analize funkcije jednostavnom bitovskom proverom može utvrditi koje vrste narušavanja su zabeležene.
 
 \section{Opis rešenja problema}
 
@@ -184,16 +192,48 @@ int pure_unsafe(int x)
 }
 \end{lstlisting}
 
--- objasniti po callbackovima djurdja
+Metoda \texttt{checkBeginFunction()} poziva se prilikom ulaska u funkciju. U ovoj fazi proverava se da li je funkcija označena atributom \texttt{pure} ili \texttt{const}. Ukoliko jeste, u \texttt{ProgramState} se beleže informacije o dubini trenutne analize, vrsti funkcije koja se proverava i inicijalnom stanju bez pronađenih sporednih efekata.
 
+Metoda \texttt{checkBind()} poziva se svaki put kada tokom simboličkog izvršavanja dođe do upisa vrednosti u memoriju. Analizom lokacije upisa utvrđuje se da li se radi o upisu u globalnu promenljivu, preko pokazivača ili preko reference. U slučaju detektovanog narušavanja pravila odgovarajući sporedni efekat upisuje se u trenutno stanje analize.
 
-\subsection{const checker} djurjda
--- objasniti da li je razdvojeno i da li jeste ili nije i zasto
--- objsniti razliku u odnosu na pure
+Metoda \texttt{checkPreCall()} poziva se pre poziva druge funkcije. Ako pozivana funkcija ima dostupno telo, CSA nastavlja analizom njene implementacije. U suprotnom, dozvoljenost poziva određuje se na osnovu atributa pozivane funkcije i vrste funkcije pozivaoca. Funkcija označena atributom \texttt{const} može pozivati samo \texttt{const} funkcije, dok \texttt{pure} funkcija može pozivati i \texttt{pure} i \texttt{const} funkcije.
 
+Metoda \texttt{checkEndFunction()} poziva se pri završetku analize funkcije. Ukoliko su tokom izvršavanja zabeleženi sporedni efekti, kreira se odgovarajući dijagnostički izveštaj. Nakon toga informacije vezane za završenu funkciju uklanjaju se iz \texttt{ProgramState}-a.
 
-\section{Zaključak} djurdja
+\subsection{Const checker}
 
+Podrška za funkcije označene atributom \texttt{const} nije realizovana kroz poseban checker, već je objedinjena sa podrškom za \texttt{pure} funkcije u okviru klase \texttt{PureFunctionChecker}. Ovakav pristup je izabran zato što se veliki deo logike preklapa, uključujući prepoznavanje atributa, praćenje toka analize, beleženje sporednih efekata i prijavljivanje dijagnostičkih poruka. Time je izbegnuto dupliranje koda i pojednostavljeno dalje proširivanje implementacije.
+
+Prilikom ulaska u funkciju proverava se da li je ona označena atributom \texttt{pure} ili \texttt{const}, nakon čega se u \texttt{ProgramState} beleži njen tip. Na osnovu ove informacije callback metode tokom daljeg toka analize primenjuju odgovarajuća pravila u zavisnosti od vrste funkcije koja se proverava.
+
+Kod funkcija označenih atributom \texttt{const} proveravaju se isti sporedni efekti kao i kod \texttt{pure} funkcija, odnosno upis u globalne promenljive, upis preko pokazivača i upis preko referenci. Razlika u implementaciji odnosi se na obradu poziva drugih funkcija u okviru metode \texttt{checkPreCall()}.
+
+Ukoliko pozivana funkcija ima dostupno telo, analiza se nastavlja njenim simboličkim izvršavanjem. Kada telo nije dostupno, odluka se donosi na osnovu atributa pozivane funkcije i tipa funkcije pozivaoca. U tom slučaju funkcija označena atributom \texttt{const} može da pozove isključivo drugu \texttt{const} funkciju. Poziv \texttt{pure} funkcije evidentira se kao \texttt{InsufficientlyPureCall}, dok se poziv funkcije bez odgovarajućeg atributa evidentira kao \texttt{UnknownCall}.
+
+Na primer, u sledećem testu funkcija označena atributom \texttt{const} poziva funkciju označenu atributom \texttt{pure}:
+
+\begin{lstlisting}[caption={Poziv funkcije koja je označena kao pure ali joj je nedostupno telo},label={lst:call-pure}]
+[[clang::annotate("pure")]]
+int external_pure_function(int x);
+
+[[clang::annotate("const")]]
+int const_function(int x)
+{
+    return external_pure_function(x); // expected warning
+}
+\end{lstlisting}
+
+U ovom primeru telo funkcije \texttt{external\_pure\_function()} nije dostupno, pa analizator ne može da proveri njenu implementaciju. Zbog toga se dozvoljenost poziva određuje na osnovu atributa. Pošto funkcija označena atributom \texttt{const} može da poziva samo drugu \texttt{const} funkciju, poziv \texttt{pure} funkcije beleži se kao \texttt{InsufficientlyPureCall}.
+
+\section{Zaključak}
+
+U okviru ovog rada implementiran je proširivi checker za Clang Static Analyzer namenjen proveri funkcija označenih atributima \texttt{pure} i \texttt{const}. Implementacija je zasnovana na callback mehanizmu CSA i omogućava otkrivanje sporednih efekata koji narušavaju uslove definisane ovim atributima. Pored provere upisa u globalne promenljive, preko pokazivača i referenci, implementirana je i analiza poziva drugih funkcija uz razlikovanje slučajeva kada je telo pozivane funkcije dostupno i kada nije.
+
+Podrška za oba atributa objedinjena je u okviru jednog checker-a, dok se odgovarajuća pravila primenjuju na osnovu tipa funkcije koja se trenutno analizira. Dodatno, omogućena je konfiguracija rada checker-a kroz više režima, čime korisnik može da odabere da li želi proveru samo \texttt{pure}, samo \texttt{const} ili obe vrste funkcija.
+
+Implementirano rešenje potvrđeno je skupom test primera koji obuhvataju različite scenarije korišćenja atributa, uključujući ispravne i neispravne slučajeve. Dobijeni rezultati pokazuju da checker uspešno prepoznaje implementirane vrste sporednih efekata i generiše odgovarajuća upozorenja.
+
+Dalji pravac razvoja može obuhvatiti podršku za složenije obrasce pristupa memoriji i precizniju obradu poziva funkcija čije telo nije dostupno.
 
 \bibliographystyle{plain}
 \bibliography{literatura}
