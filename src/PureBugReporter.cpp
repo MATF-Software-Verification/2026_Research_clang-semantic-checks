@@ -59,7 +59,10 @@ void PureBugReporter::reportImpureFunction(
     {
         AddEffect("a call to a pure function that does not satisfy const function requirements");
     }
-
+    if (SideEffects & SideEffectKind::GlobalRead){
+        AddEffect("a global variable read");
+    }
+    
     Msg += ".";
 
     ExplodedNode *N = C.generateNonFatalErrorNode();

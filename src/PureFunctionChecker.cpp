@@ -311,3 +311,46 @@ bool PureFunctionChecker::shouldCheckFunction(const FunctionDecl *FD) const
 
     return false;
 }
+
+void PureFunctionChecker::checkLocation(
+    SVal Loc,
+    bool IsLoad,
+    const Stmt *S,
+    CheckerContext &C) const
+{
+    if (!IsLoad)
+        return;
+
+    ProgramStateRef State = C.getState();
+
+    if (State->get<PureDepth>() == 0)
+        return;
+
+    const unsigned *Kind = State->get<FunctionKindsAtDepth>(State->get<PureDepth>());
+
+    if (!Kind || *Kind != ConstFunctionKind)
+        return;
+
+    if (!isGlobalRead(Loc))
+        return;
+
+    State = addSideEffect(State, SideEffectKind::GlobalRead);
+
+    C.addTransition(State);
+}
+
+bool PureFunctionChecker::isGlobalRead(SVal Loc) const
+{
+    const MemRegion *Region = Loc.getAsRegion();
+
+    if (!Region)
+        return false;
+
+    const auto *VarRegion =
+        Region->getBaseRegion()->getAs<clang::ento::VarRegion>();
+
+    if (!VarRegion)
+        return false;
+
+    return VarRegion->getDecl()->hasGlobalStorage();
+}
