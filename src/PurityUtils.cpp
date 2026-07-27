@@ -7,7 +7,7 @@
 using namespace clang;
 using namespace ento;
 
-bool ento::isPureFunction(const FunctionDecl *FD) // returns true for both pure and const functions (const extends pure)
+bool ento::isPureFunction(const FunctionDecl *FD)
 {
     if (!FD)
         return false;

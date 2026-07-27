@@ -120,8 +120,6 @@ void PureFunctionChecker::checkPreCall(
     if (!Kind)
         return;
 
-    // const can call only const function (calling pure is not safe by default), while pure can call both pure and const functions
-
     if (*Kind == ConstFunctionKind) {
         if (isConstFunction(FD))
             return;
